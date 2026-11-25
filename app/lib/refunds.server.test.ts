@@ -18,6 +18,12 @@ import {
   fakeNotifications,
   type FakeNotifications,
 } from "./notifications.fake.server";
+import {
+  getNote,
+  isBookmarked,
+  saveNote,
+  toggleBookmark,
+} from "./bookmarks-and-notes.server";
 
 type TestDb = ReturnType<typeof createTestDb>;
 
@@ -265,6 +271,20 @@ describe("the refund offer on the course page", () => {
 });
 
 describe("approving a Refund Request", () => {
+  it("keeps the buyer's Bookmarks and Notes", async () => {
+    const purchase = buyForSelf(base.user.id);
+    const lesson = { userId: base.user.id, lessonId: lessonIds[0] };
+    toggleBookmark(db, lesson, NOW);
+    saveNote(db, lesson, "Come back to this", NOW);
+    const id = await raise(purchase.id, base.user.id);
+
+    await approveRefundRequest(db, id, platformAdmin.id, null, NOW, notifications);
+
+    expect(isEnrolled(base.user.id)).toBe(false);
+    expect(isBookmarked(db, lesson)).toBe(true);
+    expect(getNote(db, lesson)?.body).toBe("Come back to this");
+  });
+
   it("removes the buyer's Enrollment but keeps their progress", async () => {
     const purchase = buyForSelf(base.user.id);
     db.insert(schema.lessonProgress)
